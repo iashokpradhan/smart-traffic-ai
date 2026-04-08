@@ -448,7 +448,7 @@ async function doUpload() {
   formData.append('intersectionId', id);
 
   try {
-    const resp = await fetch('http://localhost:8080/upload', {
+    const resp = await fetch('/upload', {
       method: 'POST',
       body: formData
     });
@@ -474,7 +474,7 @@ async function doUpload() {
 function triggerEmergency() {
   const id = document.getElementById('ul-id').value; // Using same dropdown contextually
   termLog(`EMERGENCY INSTRUCT: Forcing red-wave across node ${id}`, true);
-  fetch('http://localhost:8080/emergency', {
+  fetch('/emergency', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ intersectionId: id })
