@@ -1,5 +1,6 @@
 package com.smarttraffic.service;
 
+import com.smarttraffic.model.VisionResult;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,10 +20,10 @@ public class GeminiVisionService {
 
     private static final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
 
-    public int detectVehicles(byte[] imageBytes, String mimeType, int fallback) {
+    public VisionResult detectVehicles(byte[] imageBytes, String mimeType, int fallbackCount) {
         if (apiKey == null || apiKey.isEmpty()) {
             System.err.println("Gemini API Key is missing. Using fallback.");
-            return fallback;
+            return new VisionResult(fallbackCount, false, false);
         }
 
         try {
@@ -36,7 +37,7 @@ public class GeminiVisionService {
             part1.put("inlineData", inlineData);
 
             JSONObject part2 = new JSONObject();
-            part2.put("text", "Estimate the number of vehicles in this image. Return only a number.");
+            part2.put("text", "Analyze this traffic image. Respond ONLY with a valid JSON object strictly matching this format: {\"vehicleCount\": number, \"hasEmergency\": boolean, \"hasAccident\": boolean}. 'hasEmergency' is true if there is an ambulance, fire truck, or police car. 'hasAccident' is true if there is a crash, flipped car, or major debris. Do not include markdown formatting or backticks like ```json.");
 
             JSONArray parts = new JSONArray();
             parts.put(part1);
@@ -71,9 +72,14 @@ public class GeminiVisionService {
                         .getString("text");
                         
                 try {
-                    return Integer.parseInt(text.trim());
-                } catch (NumberFormatException e) {
-                    System.err.println("Could not parse number from AI response: " + text);
+                    String cleanText = text.replace("```json", "").replace("```", "").trim();
+                    JSONObject resultJson = new JSONObject(cleanText);
+                    int count = resultJson.optInt("vehicleCount", fallbackCount);
+                    boolean hasEmergency = resultJson.optBoolean("hasEmergency", false);
+                    boolean hasAccident = resultJson.optBoolean("hasAccident", false);
+                    return new VisionResult(count, hasEmergency, hasAccident);
+                } catch (Exception e) {
+                    System.err.println("Could not parse JSON from AI response: " + text);
                 }
             } else {
                 System.err.println("AI request failed: " + response.body());
@@ -81,6 +87,6 @@ public class GeminiVisionService {
         } catch (Exception e) {
             System.err.println("Exception in GeminiVisionService: " + e.getMessage());
         }
-        return fallback;
+        return new VisionResult(fallbackCount, false, false);
     }
 }

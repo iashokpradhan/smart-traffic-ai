@@ -18,6 +18,8 @@ public class Intersection {
     private int vehicleCount;
     private String density;
     private int signalTiming;
+    private boolean hasEmergency;
+    private boolean hasAccident;
     
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = "intersection_id")
@@ -28,5 +30,7 @@ public class Intersection {
         this.vehicleCount = 0;
         this.density = "LOW";
         this.signalTiming = 30;
+        this.hasEmergency = false;
+        this.hasAccident = false;
     }
 }

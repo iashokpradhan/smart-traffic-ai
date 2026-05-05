@@ -7,6 +7,7 @@ import com.smarttraffic.model.SignalLog;
 import com.smarttraffic.repository.EmergencyEventRepository;
 import com.smarttraffic.repository.IntersectionRepository;
 import com.smarttraffic.repository.SignalLogRepository;
+import com.smarttraffic.model.VisionResult;
 import com.smarttraffic.service.GeminiVisionService;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -86,13 +87,22 @@ public class TrafficController {
                 return ResponseEntity.badRequest().body(Map.of("error", "No file uploaded"));
             }
 
-            int count = geminiVisionService.detectVehicles(file.getBytes(), file.getContentType(), 15);
+            VisionResult result = geminiVisionService.detectVehicles(file.getBytes(), file.getContentType(), 15);
             
-            intersection.setVehicleCount(count);
-            intersection.setDensity(calculateDensity(count));
-            intersection.setSignalTiming(calculateSignalTiming(intersection.getDensity()));
+            intersection.setVehicleCount(result.getVehicleCount());
+            intersection.setDensity(calculateDensity(result.getVehicleCount()));
+            intersection.setHasEmergency(result.isHasEmergency());
+            intersection.setHasAccident(result.isHasAccident());
             
-            intersection.getHistory().add(new IntersectionHistory(new Date(), count));
+            if (result.isHasEmergency() || result.isHasAccident()) {
+                intersection.setSignalTiming(90); // Priority override
+                String type = result.isHasEmergency() ? "EMERGENCY_VEHICLE" : "ACCIDENT";
+                emergencyEventRepo.save(new EmergencyEvent(intersectionId, new Date(), type));
+            } else {
+                intersection.setSignalTiming(calculateSignalTiming(intersection.getDensity()));
+            }
+            
+            intersection.getHistory().add(new IntersectionHistory(new Date(), result.getVehicleCount()));
             intersectionRepo.save(intersection);
             
             signalLogRepo.save(new SignalLog(intersectionId, intersection.getSignalTiming(), new Date()));
